@@ -1,50 +1,43 @@
-/* mkvtune v0.2 — MC-shaped chrome + duf-style visual density.
-   Dark default; .amoled (on App and Screen) swaps in pure black. */
+/* mkvtune v0.3 — MC-shaped chrome + duf-style density, theme-driven.
+   Colors come from Textual theme variables, so every theme (dark / amoled /
+   mc / paper) restyles the whole app consistently. */
 
 Screen {
-    background: #101418;
-    color: #d7dee7;
-}
-
-Screen.amoled {
-    background: #000000;
+    background: $background;
+    color: $foreground;
 }
 
 /* ---- top chrome: menu bar + info bar ---- */
 
 #menubar {
     height: 1;
-    background: #1b222c;
+    background: $panel;
 }
 
 .menu-item {
     width: auto;
     padding: 0 1;
-    background: #1b222c;
-    color: #d7dee7;
+    background: $panel;
+    color: $foreground;
 }
 
 .menu-item:hover {
-    background: #6cb6ff;
-    color: #0b0e12;
+    background: $primary;
+    color: $background;
 }
 
 #brand {
     width: 1fr;
     padding: 0 1;
     text-align: right;
-    color: #7d8794;
+    color: $text-muted;
 }
 
 #infobar {
     height: 1;
     padding: 0 1;
-    background: #101418;
-    color: #d7dee7;
-}
-
-Screen.amoled #infobar {
-    background: #000000;
+    background: $background;
+    color: $foreground;
 }
 
 /* ---- body: browser + episodes + tracks ---- */
@@ -56,16 +49,30 @@ Screen.amoled #infobar {
 #browser {
     width: 30%;
     min-width: 28;
-    background: #161c24;
-    border-right: solid #2a3340;
+    background: $surface;
+    border-right: solid $panel-lighten-2;
 }
 
 #browser-title {
     height: 1;
     padding: 0 1;
-    background: #1b222c;
-    color: #6cb6ff;
+    background: $panel;
+    color: $text-accent;
     text-style: bold;
+}
+
+ListItem.panel-up {
+    color: $text-accent;
+    text-style: bold;
+}
+
+ListItem.panel-dir {
+    color: $text-primary;
+    text-style: bold;
+}
+
+ListItem.panel-file {
+    color: $foreground;
 }
 
 #main {
@@ -74,42 +81,42 @@ Screen.amoled #infobar {
 
 #files {
     height: 2fr;
-    background: #161c24;
+    background: $surface;
 }
 
 #tracks-wrap {
     height: 1fr;
     min-height: 6;
-    background: #101418;
-    border-top: solid #2a3340;
+    background: $background;
+    border-top: solid $panel-lighten-2;
 }
 
 #tracks-title {
     height: 1;
     padding: 0 1;
-    background: #1b222c;
-    color: #6cb6ff;
+    background: $panel;
+    color: $text-accent;
     text-style: bold;
 }
 
 #tracks {
     height: 1fr;
-    background: #101418;
+    background: $background;
 }
 
 DataTable > .datatable--header {
-    background: #1b222c;
-    color: #6cb6ff;
+    background: $panel;
+    color: $text-accent;
     text-style: bold;
 }
 
 DataTable > .datatable--cursor {
-    background: #6cb6ff;
-    color: #0b0e12;
+    background: $block-cursor-background;
+    color: $block-cursor-foreground;
 }
 
 DataTable > .datatable--hover {
-    background: #1b222c;
+    background: $panel-lighten-1;
 }
 
 /* ---- bottom chrome: F-key bar + status ---- */
@@ -117,47 +124,20 @@ DataTable > .datatable--hover {
 #keybar {
     height: 1;
     padding: 0 1;
-    background: #1b222c;
-    color: #d7dee7;
+    background: $panel;
+    color: $foreground;
 }
 
 #status {
     height: 1;
     padding: 0 1;
-    background: #1b222c;
-    color: #d7dee7;
+    background: $panel;
+    color: $foreground;
 }
 
-#status.-ok { color: #4ec9b0; }
-#status.-error { color: #f26d78; }
-#status.-busy { color: #e5c07b; }
-
-/* ---- AMOLED pure-black overrides ---- */
-
-Screen.amoled #menubar,
-Screen.amoled .menu-item,
-Screen.amoled #brand,
-Screen.amoled #keybar,
-Screen.amoled #status {
-    background: #07090c;
-}
-
-Screen.amoled #browser,
-Screen.amoled #files {
-    background: #000000;
-}
-
-Screen.amoled #browser-title,
-Screen.amoled #tracks-title,
-Screen.amoled DataTable > .datatable--header,
-Screen.amoled DataTable > .datatable--hover {
-    background: #07090c;
-}
-
-Screen.amoled #tracks-wrap,
-Screen.amoled #tracks {
-    background: #000000;
-}
+#status.-ok { color: $text-success; }
+#status.-error { color: $text-error; }
+#status.-busy { color: $text-warning; }
 
 /* ---- dropdown menus ---- */
 
@@ -165,8 +145,8 @@ Screen.amoled #tracks {
     width: 42;
     height: auto;
     max-height: 24;
-    background: #161c24;
-    border: heavy #6cb6ff;
+    background: $surface;
+    border: heavy $primary;
     padding: 0 1;
 }
 
@@ -182,8 +162,8 @@ ModalScreen {
     max-width: 92%;
     height: auto;
     max-height: 80%;
-    background: #161c24;
-    border: heavy #6cb6ff;
+    background: $surface;
+    border: heavy $primary;
     padding: 1 2;
 }
 
@@ -191,18 +171,14 @@ ModalScreen {
     width: 62;
 }
 
-.amoled .modal-box {
-    background: #000000;
-}
-
 .modal-title {
     text-style: bold;
-    color: #6cb6ff;
+    color: $text-accent;
     padding: 0 0 1 0;
 }
 
 .modal-text {
-    color: #d7dee7;
+    color: $foreground;
 }
 
 .modal-actions {
@@ -215,8 +191,8 @@ Button {
 }
 
 Button.-primary {
-    background: #6cb6ff;
-    color: #0b0e12;
+    background: $primary;
+    color: auto 87%;
 }
 
-.dim { color: #7d8794; }
+.dim { color: $text-muted; }

@@ -110,13 +110,30 @@ def test_tui_theme_toggle_and_quit(xdg_env, mkv_factory):
             deadline = time.monotonic() + 30
             while not app.scan_done.is_set() and time.monotonic() < deadline:
                 await pilot.pause(0.05)
+            assert app.theme == "dark"
             await pilot.press("t")
-            assert app.screen.has_class("amoled")
+            assert app.theme == "amoled"
             assert config.load_settings().theme == "amoled"
             await pilot.press("t")
-            assert not app.screen.has_class("amoled")
+            assert app.theme == "mc"
+            await pilot.press("t")
+            assert app.theme == "paper"
+            await pilot.press("t")
+            assert app.theme == "dark"  # cycles around
 
     asyncio.run(scenario())
+
+
+def test_theme_palettes_are_visually_distinct():
+    from mkvtune.tui.app import THEMES
+
+    assert set(THEMES) == {"dark", "amoled", "mc", "paper"}
+    assert len({t.background for t in THEMES.values()}) == 4
+    assert len({t.primary for t in THEMES.values()}) == 4
+    assert THEMES["amoled"].background == "#000000"
+    assert THEMES["mc"].background == "#0000aa"
+    assert THEMES["paper"].dark is False
+    assert all(t.dark for name, t in THEMES.items() if name != "paper")
 
 
 def test_tui_empty_folder(xdg_env):
@@ -255,6 +272,9 @@ def test_tui_menu_dropdown_and_browser(xdg_env, mkv_factory):
             while not app.scan_done.is_set() and time.monotonic() < deadline:
                 await pilot.pause(0.05)
 
+            # browser is open by default in v0.3
+            assert app.query_one("#browser").display is True
+
             # F9 opens the File dropdown; escape closes it
             await pilot.press("f9")
             await pilot.pause(0.1)
@@ -268,13 +288,13 @@ def test_tui_menu_dropdown_and_browser(xdg_env, mkv_factory):
             await pilot.pause(0.1)
             await pilot.press("enter")
             await pilot.pause(0.1)
-            assert app.query_one("#browser").display is True
+            assert app.query_one("#browser").display is False  # toggled off
 
             # F3 toggles the browser pane
             await pilot.press("f3")
-            assert app.query_one("#browser").display is False
-            await pilot.press("f3")
             assert app.query_one("#browser").display is True
+            await pilot.press("f3")
+            assert app.query_one("#browser").display is False
 
     asyncio.run(scenario())
 
@@ -317,16 +337,16 @@ def test_tui_goto_folder(xdg_env, mkv_factory, tmp_path):
 
 
 @requires_tools
-def test_tui_browser_reaches_filesystem_root(xdg_env, mkv_factory):
-    """v0.2.1: the browser tree is rooted at / (mc-style) so mounts outside
-    home are reachable — it must never be anchored to the start folder."""
+def test_tui_browser_defaults_and_modes(xdg_env, mkv_factory):
+    """v0.3: browser open by default in mc panel mode; tree mode (rooted at
+    /) stays available via the View menu."""
     from pathlib import Path
 
     from textual.widgets import DirectoryTree
 
     from mkvtune import config
     from mkvtune.scan import find_tools
-    from mkvtune.tui.app import MkvtuneApp
+    from mkvtune.tui.app import MkvtuneApp, _BrowserPanel
 
     f = mkv_factory("ep.mkv")
 
@@ -336,8 +356,59 @@ def test_tui_browser_reaches_filesystem_root(xdg_env, mkv_factory):
             deadline = time.monotonic() + 30
             while not app.scan_done.is_set() and time.monotonic() < deadline:
                 await pilot.pause(0.05)
+            assert app.query_one("#browser").display is True
+            assert app.query_one("#panel", _BrowserPanel).display is True
+            assert app.query_one("#tree", DirectoryTree).display is False
+
+            app.action_browser_mode()
+            assert app.query_one("#panel", _BrowserPanel).display is False
             tree = app.query_one("#tree", DirectoryTree)
+            assert tree.display is True
             assert Path(tree.path) == Path("/")
+
+    asyncio.run(scenario())
+
+
+@requires_tools
+def test_tui_panel_navigates_like_mc(xdg_env, mkv_factory, tmp_path):
+    """mc panel behavior: one folder's contents + ".."; Enter enters a
+    folder (and loads its episodes), backspace goes up."""
+    from textual.widgets import DataTable
+
+    from mkvtune import config
+    from mkvtune.scan import find_tools
+    from mkvtune.tui.app import MkvtuneApp, _BrowserPanel
+
+    sub = tmp_path / "season2"
+    sub.mkdir()
+    f = mkv_factory("ep.mkv")
+    f.rename(sub / "ep.mkv")
+
+    async def scenario():
+        app = MkvtuneApp(tmp_path, settings=config.load_settings(), tools=find_tools())
+        async with app.run_test(size=(120, 30)) as pilot:
+            deadline = time.monotonic() + 30
+            while not app.scan_done.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.05)
+            panel = app.query_one("#panel", _BrowserPanel)
+            assert panel.cwd == tmp_path.resolve()
+            assert panel.children[0].kind == "up"          # ".." on top
+            assert any(c.kind == "dir" and c.entry.name == "season2" for c in panel.children)
+
+            panel.focus()
+            await pilot.press("down")                      # highlight season2/
+            await pilot.press("enter")                     # enter + load episodes
+            for _ in range(100):
+                await pilot.pause(0.05)
+                if app.query_one("#files", DataTable).row_count == 1:
+                    break
+            assert app.query_one("#files", DataTable).row_count == 1
+            assert app.directory == sub.resolve()
+            assert panel.cwd == sub.resolve()
+            assert panel.children[0].kind == "up"
+
+            await pilot.press("backspace")                 # go up, no reload
+            assert panel.cwd == tmp_path.resolve()
 
     asyncio.run(scenario())
 

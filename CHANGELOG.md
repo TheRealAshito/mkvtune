@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0 — 2026-11-17
+
+- **Browser opens by default** and gains an mc-style panel mode: one
+  folder's contents plus a ".." entry to go up (Enter enters folders and
+  loads their episodes, Enter on a file opens its folder, backspace goes
+  up). The full tree stays available (View > Browser: mc panel / tree),
+  still rooted at `/`. Mode choice persists.
+- **Real themes** (replaces the class-swap hack): `t` / View > Next theme
+  cycles four visually distinct looks — dark (blue on slate), amoled
+  (pure black, cyan/magenta accents), mc (classic Midnight Commander
+  blue), paper (light). Choice persists across runs.
+- Scan dialog now appears only when a scan is actually slow (first visit
+  to a folder); cached switches are flash-free but long scans can never
+  look like a hang.
+
 ## 0.2.1 — 2026-11-17
 
 - File browser (F3) is now rooted at `/` (mc-style) instead of the start

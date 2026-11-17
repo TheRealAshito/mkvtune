@@ -27,9 +27,10 @@ from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.css.query import NoMatches
 from textual.screen import ModalScreen
+from textual.theme import Theme
 from textual.widgets import (
-    Button, DataTable, DirectoryTree, Input, Label, OptionList, ProgressBar,
-    Static,
+    Button, DataTable, DirectoryTree, Input, Label, ListItem, ListView,
+    OptionList, ProgressBar, Static,
 )
 from textual.widgets._option_list import Option
 
@@ -69,7 +70,8 @@ MENUS: dict[str, list[tuple[str, str, str]]] = {
     ],
     "view": [
         ("Toggle file browser", "F3", "view.browser"),
-        ("Toggle dark / AMOLED theme", "t", "view.theme"),
+        ("Browser: mc panel / tree", "", "view.browser_mode"),
+        ("Next theme", "t", "view.theme"),
     ],
     "help": [
         ("Keys", "F1", "help.keys"),
@@ -79,6 +81,31 @@ MENUS: dict[str, list[tuple[str, str, str]]] = {
 
 MENU_TITLES = {"file": "File", "pick": "Pick", "batch": "Batch",
                "view": "View", "help": "Help"}
+
+THEMES: dict[str, Theme] = {
+    "dark": Theme(
+        name="dark", primary="#6cb6ff", secondary="#4ec9b0", warning="#e5c07b",
+        error="#f26d78", success="#4ec9b0", accent="#bb9af7",
+        foreground="#d7dee7", background="#101418", surface="#161c24",
+        panel="#1b222c", dark=True),
+    "amoled": Theme(
+        name="amoled", primary="#00e5ff", secondary="#7dffb2", warning="#ffd166",
+        error="#ff5470", success="#00e59a", accent="#ff4fd8",
+        foreground="#e8fcff", background="#000000", surface="#000000",
+        panel="#0a0a0c", dark=True),
+    "mc": Theme(
+        name="mc", primary="#00aaaa", secondary="#00aaaa", warning="#ffff55",
+        error="#ff5555", success="#55ff55", accent="#55ffff",
+        foreground="#ffffff", background="#0000aa", surface="#0000aa",
+        panel="#000000", dark=True),
+    "paper": Theme(
+        name="paper", primary="#2456a6", secondary="#2c7a5b", warning="#b0790a",
+        error="#b2333c", success="#2c7a5b", accent="#7a3fa8",
+        foreground="#26221b", background="#f4f1ea", surface="#ffffff",
+        panel="#e7e1d5", dark=False),
+}
+
+THEME_ORDER = ["dark", "amoled", "mc", "paper"]
 
 
 def middle_truncate(name: str, width: int) -> str:
@@ -105,6 +132,68 @@ class _MenuItem(Static):
     def on_click(self) -> None:
         key = self.id.split("-", 1)[1]
         self.app._open_menu(key, x=self.region.x)  # type: ignore[attr-defined]
+
+
+class _Entry(ListItem):
+    """One line of the mc-style browser panel."""
+
+    def __init__(self, label: str, entry: Path, kind: str) -> None:
+        super().__init__(Label(label), classes=f"panel-{kind}")
+        self.entry = entry
+        self.kind = kind  # "up" | "dir" | "file"
+
+
+class _BrowserPanel(ListView):
+    """mc-style browser: the contents of ONE folder plus a ".." entry to go
+    up — never the whole tree. Talks to the app directly on selection."""
+
+    BINDINGS = [Binding("backspace", "go_up", "Up")]
+
+    def __init__(self, path: Path, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self.cwd = path
+
+    def on_mount(self) -> None:
+        self.show_dir(self.cwd)
+
+    def show_dir(self, path: Path) -> None:
+        path = Path(path).expanduser().resolve()
+        if not path.is_dir():
+            return
+        self.cwd = path
+        self.clear()
+        if path.parent != path:
+            self.append(_Entry("../", path.parent, "up"))
+        try:
+            entries = sorted(path.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        except OSError:
+            entries = []
+        for entry in entries:
+            if entry.name.startswith("."):
+                continue
+            if entry.is_dir():
+                self.append(_Entry(f"{entry.name}/", entry, "dir"))
+            elif entry.is_file():
+                self.append(_Entry(entry.name, entry, "file"))
+        if self.index is not None and len(self.children) > 0:  # keep cursor sane
+            self.index = 0
+
+    def action_go_up(self) -> None:
+        if self.cwd.parent != self.cwd:
+            self.show_dir(self.cwd.parent)
+
+    @on(ListView.Selected)
+    def _entry_selected(self, event: ListView.Selected) -> None:
+        item = event.item
+        if not isinstance(item, _Entry):
+            return
+        if item.kind == "up":
+            self.show_dir(item.entry)
+        elif item.kind == "dir":
+            self.show_dir(item.entry)
+            self.app._panel_folder_entered(item.entry)  # type: ignore[attr-defined]
+        else:
+            self.app._panel_file_picked(item.entry)  # type: ignore[attr-defined]
 
 
 class MkvtuneApp(App[None]):
@@ -166,6 +255,7 @@ class MkvtuneApp(App[None]):
         with Horizontal(id="body"):
             with Vertical(id="browser"):
                 yield Label("BROWSER  (F3 closes)", id="browser-title")
+                yield _BrowserPanel(self.directory, id="panel")
                 yield DirectoryTree("/", id="tree")
             with Vertical(id="main"):
                 yield DataTable(id="files", cursor_type="row", zebra_stripes=True)
@@ -181,30 +271,42 @@ class MkvtuneApp(App[None]):
         yield Static("Loading…", id="status")
 
     def on_mount(self) -> None:
-        if self.settings.amoled:
-            self.add_class("amoled")
-            self.screen.add_class("amoled")
-        self.query_one("#browser").display = False
+        for theme in THEMES.values():
+            self.register_theme(theme)
+        self.theme = self.settings.theme if self.settings.theme in THEMES else "dark"
         files = self.query_one("#files", DataTable)
         files.add_columns("✓", "Episode", "Audio", "Sub", "Δ")
         tracks = self.query_one("#tracks", DataTable)
         tracks.add_columns("#", "Type", "Codec", "Lang", "Name", "E", "D", "F")
-        files.focus()  # never let the hidden browser tree hold initial focus
+        self._apply_browser_mode()
+        files.focus()  # never let the hidden browser widgets hold initial focus
         self.load_files(show_scan=True)
+
+    def _apply_browser_mode(self) -> None:
+        mode = self.settings.browser_mode if self.settings.browser_mode in ("panel", "tree") else "panel"
+        self.query_one("#panel", _BrowserPanel).display = mode == "panel"
+        self.query_one("#tree", DirectoryTree).display = mode == "tree"
 
     # ----------------------------------------------------------- scanning
 
     @work(thread=True, exclusive=True, group="scan")
     def load_files(self, show_scan: bool = True) -> None:
         self.scan_done.clear()
+        self._scan_screen = None
         files = list_mkv_files(self.directory)
 
-        def start() -> None:
-            if show_scan:
+        # The scan dialog appears only if the scan is actually SLOW (first
+        # visit); cached re-entries stay flash-free but long scans can never
+        # look like a hang.
+        def maybe_show() -> None:
+            if show_scan and not self.scan_done.is_set() and self._scan_screen is None:
                 self._scan_screen = _ScanScreen()
                 self.push_screen(self._scan_screen)
 
-        self.call_from_thread(start)
+        timer = threading.Timer(0.35, lambda: self.call_from_thread(maybe_show))
+        timer.daemon = True
+        if show_scan:
+            timer.start()
 
         states: dict[str, FileTracks] = {}
         total = len(files)
@@ -215,6 +317,7 @@ class MkvtuneApp(App[None]):
             states[str(path)] = identify(path, self.tools, use_cache=True)
 
         def finish() -> None:
+            timer.cancel()
             self.states = states
             self.order = list(states)
             if self.current_file not in self.states:
@@ -431,8 +534,15 @@ class MkvtuneApp(App[None]):
         self.pending.clear()
         self.marked.clear()
         self.current_file = str(focus) if focus else None
+        self.query_one("#panel", _BrowserPanel).show_dir(directory)
         self._set_status(f"Loading {directory}…", "-busy")
         self.load_files(show_scan=True)
+
+    def _panel_folder_entered(self, path: Path) -> None:
+        self._load_directory(path)
+
+    def _panel_file_picked(self, path: Path) -> None:
+        self._load_directory(path.parent, focus=path)
 
     # ------------------------------------------------------------ actions
 
@@ -464,6 +574,7 @@ class MkvtuneApp(App[None]):
             "batch.apply": self.action_apply,
             "batch.undo": self.action_undo,
             "view.browser": self.action_browse,
+            "view.browser_mode": self.action_browser_mode,
             "view.theme": self.action_theme,
             "help.keys": self.action_help,
             "help.diag": self.action_diagnostics,
@@ -476,8 +587,20 @@ class MkvtuneApp(App[None]):
         browser = self.query_one("#browser")
         browser.display = not browser.display
         if browser.display:
-            self.query_one("#tree", DirectoryTree).focus()
-            self._set_status("Browser open — Enter picks a folder, F3 closes", "-busy")
+            if self.settings.browser_mode == "tree":
+                self.query_one("#tree", DirectoryTree).focus()
+            else:
+                self.query_one("#panel", _BrowserPanel).focus()
+            self._set_status("Browser open — Enter enters folders / picks files, "
+                             "backspace goes up, F3 closes", "-busy")
+
+    def action_browser_mode(self) -> None:
+        self.settings.browser_mode = "tree" if self.settings.browser_mode != "tree" else "panel"
+        config.save_settings(self.settings)
+        self._apply_browser_mode()
+        self._set_status(f"Browser mode: "
+                         f"{'mc panel (one folder + ..)' if self.settings.browser_mode == 'panel' else 'tree'}",
+                         "-ok")
 
     def action_goto(self) -> None:
         self.push_screen(_GotoScreen(self.directory), self._goto_confirmed)
@@ -689,11 +812,12 @@ class MkvtuneApp(App[None]):
         self.load_files(show_scan=True)
 
     def action_theme(self) -> None:
-        self.settings.theme = "dark" if self.settings.amoled else "amoled"
+        current = self.settings.theme if self.settings.theme in THEME_ORDER else "dark"
+        nxt = THEME_ORDER[(THEME_ORDER.index(current) + 1) % len(THEME_ORDER)]
+        self.settings.theme = nxt
         config.save_settings(self.settings)
-        self.screen.toggle_class("amoled")
-        self.toggle_class("amoled")
-        self._set_status(f"Theme: {self.settings.theme}", "-ok")
+        self.theme = nxt
+        self._set_status(f"Theme: {nxt}", "-ok")
 
     def action_diagnostics(self) -> None:
         self.push_screen(DiagScreen(self.tools, self.settings))
@@ -955,7 +1079,11 @@ class HelpScreen(_Modal):
             "",
             "NAVIGATION",
             "  ↑/↓        move between episodes (Tab switches to the tracks table)",
-            "  F3         open/close the file browser (Enter picks a folder)",
+            "  F3         open/close the file browser",
+            "             (mc panel by default: one folder + .. to go up;",
+            "              View menu switches to the full tree)",
+            "  Enter      enter folder / open episode's folder / pick journal",
+            "  backspace  go up a folder (browser)",
             "  ctrl+g     jump to any folder by path",
             "",
             "PICKING (you are always the one deciding)",
@@ -975,7 +1103,7 @@ class HelpScreen(_Modal):
             "  r          rescan folder (drop cache)",
             "",
             "OTHER",
-            "  t          toggle dark / AMOLED pure-black theme",
+            "  t          next theme (dark / amoled / mc / paper)",
             "  D          diagnostics (tools, paths, settings)",
             "  F10 / q    quit",
         ])
