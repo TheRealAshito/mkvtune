@@ -24,20 +24,58 @@ remux, no re-encode, milliseconds per file regardless of size.
 
 ## Install (Debian)
 
-Requires: `mkvtoolnix` (`mkvmerge` + `mkvpropedit`) and Python ≥ 3.11.
+Target: a Debian box (tested on bookworm, Python 3.11+). Needs `mkvtoolnix`
+(`mkvmerge` + `mkvpropedit`) for the actual work.
+
+### Option A — .deb package (recommended)
+
+One copy-paste block. The `sha256sum -c` line proves the download arrived
+intact before you install anything:
 
 ```sh
 sudo apt install mkvtoolnix
-sudo apt install ./mkvtune_0.1.1-1_all.deb   # from the GitHub release assets
+cd ~
+curl -L -o mkvtune_0.1.1-1_all.deb https://github.com/TheRealAshito/mkvtune/releases/download/v0.1.1/mkvtune_0.1.1-1_all.deb
+echo "95561641d8ade9f80fd91f3d6af770a9f981071acefa5b2054f6ea7b79c8dbef  mkvtune_0.1.1-1_all.deb" | sha256sum -c -
+sudo apt install ./mkvtune_0.1.1-1_all.deb
+mkvtune doctor
 ```
 
-The .deb is self-contained (Python dependencies bundled) — no pip needed.
+- `curl -L` is required: GitHub release downloads redirect, and plain
+  `curl` saves an empty file, which makes apt fail with
+  "Invalid archive signature".
+- The .deb is self-contained (Python dependencies bundled) — no pip needed,
+  and `apt install ./file.deb` reads the local file directly (no apt repo).
+- `mkvtune doctor` should list mkvmerge/mkvpropedit with their versions.
+  If it reports them missing: `sudo apt install mkvtoolnix`.
 
-Alternative, from source:
+### Option B — pipx (no root, isolated venv)
 
 ```sh
-pipx install "git+https://github.com/TheRealAshito/mkvtune@v0.1.0"
+sudo apt install mkvtoolnix
+pipx install "git+https://github.com/TheRealAshito/mkvtune@v0.1.1"
+pipx ensurepath
+exec $SHELL
+mkvtune doctor
 ```
+
+If you skip `pipx ensurepath`, either run `~/.local/bin/mkvtune` or add
+`export PATH="$HOME/.local/bin:$PATH"` to your shell's rc file.
+
+### First run
+
+```sh
+cd /path/to/anime/folder    # e.g. navigate there in mc, then run mkvtune
+mkvtune                     # TUI in the current folder
+mkvtune /path/to/folder     # or point it at a folder directly
+```
+
+### Updating
+
+- pipx: `pipx install --force "git+https://github.com/TheRealAshito/mkvtune@v<new-version>"`
+- .deb: download the newer asset from the
+  [releases page](https://github.com/TheRealAshito/mkvtune/releases) and
+  `sudo apt install ./mkvtune_<version>_all.deb` again.
 
 ## Usage
 
@@ -105,3 +143,18 @@ every command line + stderr recorded). Toggle with `D` → `x` in the TUI.
   (`disable_other_subs`) but off by default: clearing default+forced is
   enough to keep the right sub on while keeping the others switchable in
   your player.
+
+## Troubleshooting
+
+- **apt: "Invalid archive signature" / "could not locate member
+  control.tar…"** — the file on disk isn't the real .deb (empty or HTML,
+  typically `curl` without `-L`). Re-download with the Option A block and
+  confirm the `sha256sum -c` line prints `OK` before installing.
+- **`mkvtune: command not found` after pipx** — `~/.local/bin` isn't on
+  PATH. Run `pipx ensurepath` and re-login (or use `~/.local/bin/mkvtune`).
+- **`mkvtune doctor` reports `mkvmerge not found`** — install mkvtoolnix:
+  `sudo apt install mkvtoolnix`.
+- **Crash with `AttributeError: … 'NoneType' … row_key` (v0.1.0)** — fixed
+  in v0.1.1; update (see Updating above).
+- **Keys do nothing right at startup** — the folder is still being scanned;
+  wait for the status bar to show "N file(s) loaded".
