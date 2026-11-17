@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mkvtune"
+version = "0.1.0"
+description = "TUI for MKV audio/subtitle track flag management — pick defaults, batch-apply with mkvpropedit, no remux"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "TheRealAshito", email = "TheRealAshito@users.noreply.github.com" }]
+requires-python = ">=3.11"
+dependencies = ["textual>=8.2,<9"]
+classifiers = [
+    "Environment :: Console",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Video",
+]
+
+[project.urls]
+Homepage = "https://github.com/TheRealAshito/mkvtune"
+Issues = "https://github.com/TheRealAshito/mkvtune/issues"
+
+[project.scripts]
+mkvtune = "mkvtune.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mkvtune"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

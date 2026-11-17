@@ -1,0 +1,25 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+
+# deb build artifacts
+packaging/deb/build/
+*.deb
+*.buildinfo
+*.changes
+
+# makepkg artifacts (never, anywhere)
+pkg/
+src/pkg/
+*.pkg.tar.zst
+*.pkg.tar.xz
+*.tar.gz
+
+# commit reports are local-only — never in a repo
+commit-reports/

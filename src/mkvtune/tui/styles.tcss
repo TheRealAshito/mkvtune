@@ -1,0 +1,135 @@
+/* mkvtune — dark (default) and AMOLED pure-black themes.
+   Literal colors + .amoled class overrides (theme toggles the class). */
+
+Screen {
+    background: #101418;
+    color: #d7dee7;
+}
+
+Screen.amoled {
+    background: #000000;
+}
+
+#main {
+    height: 1fr;
+}
+
+#files-pane {
+    width: 38%;
+    min-width: 36;
+    background: #161c24;
+    border-right: solid #2a3340;
+}
+
+#tracks-pane {
+    width: 1fr;
+    background: #101418;
+}
+
+#folder, #tracks-title {
+    height: 1;
+    padding: 0 1;
+    background: #1b222c;
+    color: #6cb6ff;
+    text-style: bold;
+}
+
+#files-hint, #tracks-hint {
+    height: 1;
+    padding: 0 1;
+    color: #7d8794;
+}
+
+#status {
+    height: 1;
+    padding: 0 1;
+    background: #1b222c;
+    color: #d7dee7;
+}
+
+#status.-ok { color: #4ec9b0; }
+#status.-error { color: #f26d78; }
+#status.-busy { color: #e5c07b; }
+
+DataTable {
+    background: #161c24;
+}
+
+DataTable > .datatable--header {
+    background: #1b222c;
+    color: #6cb6ff;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: #6cb6ff;
+    color: #0b0e12;
+}
+
+DataTable > .datatable--hover {
+    background: #1b222c;
+}
+
+/* AMOLED pure-black overrides */
+Screen.amoled #files-pane,
+Screen.amoled DataTable {
+    background: #000000;
+}
+
+Screen.amoled #tracks-pane {
+    background: #000000;
+}
+
+Screen.amoled #folder,
+Screen.amoled #tracks-title,
+Screen.amoled #status,
+Screen.amoled DataTable > .datatable--header,
+Screen.amoled DataTable > .datatable--hover {
+    background: #07090c;
+}
+
+/* modals */
+ModalScreen {
+    align: center middle;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.modal-box {
+    width: 76;
+    max-width: 92%;
+    height: auto;
+    max-height: 80%;
+    background: #161c24;
+    border: heavy #6cb6ff;
+    padding: 1 2;
+}
+
+.amoled .modal-box {
+    background: #000000;
+}
+
+.modal-title {
+    text-style: bold;
+    color: #6cb6ff;
+    padding: 0 0 1 0;
+}
+
+.modal-text {
+    color: #d7dee7;
+}
+
+.modal-actions {
+    padding: 1 0 0 0;
+    height: auto;
+}
+
+Button {
+    margin: 0 1 0 0;
+}
+
+Button.-primary {
+    background: #6cb6ff;
+    color: #0b0e12;
+}
+
+.dim { color: #7d8794; }
