@@ -1,5 +1,5 @@
-/* mkvtune — dark (default) and AMOLED pure-black themes.
-   Literal colors + .amoled class overrides (theme toggles the class). */
+/* mkvtune v0.2 — MC-shaped chrome + duf-style visual density.
+   Dark default; .amoled (on App and Screen) swaps in pure black. */
 
 Screen {
     background: #101418;
@@ -10,23 +10,57 @@ Screen.amoled {
     background: #000000;
 }
 
-#main {
+/* ---- top chrome: menu bar + info bar ---- */
+
+#menubar {
+    height: 1;
+    background: #1b222c;
+}
+
+.menu-item {
+    width: auto;
+    padding: 0 1;
+    background: #1b222c;
+    color: #d7dee7;
+}
+
+.menu-item:hover {
+    background: #6cb6ff;
+    color: #0b0e12;
+}
+
+#brand {
+    width: 1fr;
+    padding: 0 1;
+    text-align: right;
+    color: #7d8794;
+}
+
+#infobar {
+    height: 1;
+    padding: 0 1;
+    background: #101418;
+    color: #d7dee7;
+}
+
+Screen.amoled #infobar {
+    background: #000000;
+}
+
+/* ---- body: browser + episodes + tracks ---- */
+
+#body {
     height: 1fr;
 }
 
-#files-pane {
-    width: 38%;
-    min-width: 36;
+#browser {
+    width: 30%;
+    min-width: 28;
     background: #161c24;
     border-right: solid #2a3340;
 }
 
-#tracks-pane {
-    width: 1fr;
-    background: #101418;
-}
-
-#folder, #tracks-title {
+#browser-title {
     height: 1;
     padding: 0 1;
     background: #1b222c;
@@ -34,25 +68,33 @@ Screen.amoled {
     text-style: bold;
 }
 
-#files-hint, #tracks-hint {
-    height: 1;
-    padding: 0 1;
-    color: #7d8794;
+#main {
+    width: 1fr;
 }
 
-#status {
+#files {
+    height: 2fr;
+    background: #161c24;
+}
+
+#tracks-wrap {
+    height: 1fr;
+    min-height: 6;
+    background: #101418;
+    border-top: solid #2a3340;
+}
+
+#tracks-title {
     height: 1;
     padding: 0 1;
     background: #1b222c;
-    color: #d7dee7;
+    color: #6cb6ff;
+    text-style: bold;
 }
 
-#status.-ok { color: #4ec9b0; }
-#status.-error { color: #f26d78; }
-#status.-busy { color: #e5c07b; }
-
-DataTable {
-    background: #161c24;
+#tracks {
+    height: 1fr;
+    background: #101418;
 }
 
 DataTable > .datatable--header {
@@ -70,25 +112,66 @@ DataTable > .datatable--hover {
     background: #1b222c;
 }
 
-/* AMOLED pure-black overrides */
-Screen.amoled #files-pane,
-Screen.amoled DataTable {
+/* ---- bottom chrome: F-key bar + status ---- */
+
+#keybar {
+    height: 1;
+    padding: 0 1;
+    background: #1b222c;
+    color: #d7dee7;
+}
+
+#status {
+    height: 1;
+    padding: 0 1;
+    background: #1b222c;
+    color: #d7dee7;
+}
+
+#status.-ok { color: #4ec9b0; }
+#status.-error { color: #f26d78; }
+#status.-busy { color: #e5c07b; }
+
+/* ---- AMOLED pure-black overrides ---- */
+
+Screen.amoled #menubar,
+Screen.amoled .menu-item,
+Screen.amoled #brand,
+Screen.amoled #keybar,
+Screen.amoled #status {
+    background: #07090c;
+}
+
+Screen.amoled #browser,
+Screen.amoled #files {
     background: #000000;
 }
 
-Screen.amoled #tracks-pane {
-    background: #000000;
-}
-
-Screen.amoled #folder,
+Screen.amoled #browser-title,
 Screen.amoled #tracks-title,
-Screen.amoled #status,
 Screen.amoled DataTable > .datatable--header,
 Screen.amoled DataTable > .datatable--hover {
     background: #07090c;
 }
 
-/* modals */
+Screen.amoled #tracks-wrap,
+Screen.amoled #tracks {
+    background: #000000;
+}
+
+/* ---- dropdown menus ---- */
+
+.menu-dropdown {
+    width: 42;
+    height: auto;
+    max-height: 24;
+    background: #161c24;
+    border: heavy #6cb6ff;
+    padding: 0 1;
+}
+
+/* ---- modal dialogs ---- */
+
 ModalScreen {
     align: center middle;
     background: rgba(0, 0, 0, 0.55);
@@ -102,6 +185,10 @@ ModalScreen {
     background: #161c24;
     border: heavy #6cb6ff;
     padding: 1 2;
+}
+
+.scan-box {
+    width: 62;
 }
 
 .amoled .modal-box {

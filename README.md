@@ -35,9 +35,9 @@ intact before you install anything:
 ```sh
 sudo apt install mkvtoolnix
 cd ~
-curl -L -o mkvtune_0.1.1-1_all.deb https://github.com/TheRealAshito/mkvtune/releases/download/v0.1.1/mkvtune_0.1.1-1_all.deb
-echo "95561641d8ade9f80fd91f3d6af770a9f981071acefa5b2054f6ea7b79c8dbef  mkvtune_0.1.1-1_all.deb" | sha256sum -c -
-sudo apt install ./mkvtune_0.1.1-1_all.deb
+curl -L -o mkvtune_0.2.0-1_all.deb https://github.com/TheRealAshito/mkvtune/releases/download/v0.2.0/mkvtune_0.2.0-1_all.deb
+echo "70462504ee7c2f11b2763b68d5deb5160789d30538a9a7a1238a6343179b6d1d  mkvtune_0.2.0-1_all.deb" | sha256sum -c -
+sudo apt install ./mkvtune_0.2.0-1_all.deb
 mkvtune doctor
 ```
 
@@ -53,7 +53,7 @@ mkvtune doctor
 
 ```sh
 sudo apt install mkvtoolnix
-pipx install "git+https://github.com/TheRealAshito/mkvtune@v0.1.1"
+pipx install "git+https://github.com/TheRealAshito/mkvtune@v0.2.0"
 pipx ensurepath
 exec $SHELL
 mkvtune doctor
@@ -84,18 +84,33 @@ mkvtune                  # TUI in the current folder (e.g. from mc)
 mkvtune ~/anime/SomeShow # TUI in a specific folder
 ```
 
-| Key        | Action |
-|------------|--------------------------------------------------------------|
-| `p`        | make the highlighted track THE default for its type (subs also get forced; other tracks' default+forced are cleared) |
-| `g` / `G`  | auto-pick this file / all files (marked files only if any) — just a proposal |
-| `e` `d` `f`| toggle enabled / default / forced on the highlighted track |
-| `m`        | mark a file (limits `G` to marked files) |
-| `P`        | preview: per-file diff + exact `mkvpropedit` command (dry run) |
-| `!`        | apply pending changes (asks first, journals for undo) |
-| `u`        | undo a previous apply |
-| `r`        | rescan folder |
-| `t`        | toggle dark / AMOLED pure-black theme |
-| `D`        | diagnostics (tool paths/versions, dirs, debug toggle) |
+| Key | Action |
+|-----|--------|
+| `F2` / `p` | make the highlighted track THE default for its type (subs also get forced; rival default+forced cleared). If other episodes carry a matching track, you choose: **all of them at once**, or this episode only |
+| `g` / `G` | auto-pick this episode / all episodes (marked only if any) — just a proposal |
+| `e` `d` `f` | toggle enabled / default / forced on the highlighted track |
+| `m` | mark an episode (limits `G` to marked) |
+| `F4` / `P` | preview: per-file diff + exact `mkvpropedit` command (dry run) |
+| `F5` / `!` | apply pending changes (asks first, journals for undo) |
+| `F8` / `u` | undo a previous apply |
+| `F3` | open/close the file browser (Enter picks a folder) |
+| `ctrl+g` | jump to any folder by path |
+| `F9` / click | open the File / Pick / Batch / View / Help menus |
+| `r` | rescan folder |
+| `t` | toggle dark / AMOLED pure-black theme |
+| `D` | diagnostics (tool paths/versions, dirs, debug toggle) |
+| `F1` / `?` | help |
+| `F10` / `q` | quit |
+
+The screen (top to bottom): menu bar, info bar (folder + live counts),
+the episode list (full width, long names truncate in the middle so the
+episode number stays visible, with audio/sub chips and pending counts),
+the tracks table of the highlighted episode (colored flag dots), the
+function-key bar, and the status line.
+
+Typical season flow (60+ episodes): `G` auto-picks everything → `F4`
+reviews the diff → `F5` applies and verifies. Or pick by hand once:
+`p` on the subtitle you want → "All N episodes" → `F4` → `F5`.
 
 CLI (for scripting):
 
@@ -155,6 +170,6 @@ every command line + stderr recorded). Toggle with `D` → `x` in the TUI.
 - **`mkvtune doctor` reports `mkvmerge not found`** — install mkvtoolnix:
   `sudo apt install mkvtoolnix`.
 - **Crash with `AttributeError: … 'NoneType' … row_key` (v0.1.0)** — fixed
-  in v0.1.1; update (see Updating above).
+  in v0.1.1 (v0.2.0 has the full UI rework); update (see Updating above).
 - **Keys do nothing right at startup** — the folder is still being scanned;
   wait for the status bar to show "N file(s) loaded".
