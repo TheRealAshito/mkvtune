@@ -166,7 +166,7 @@ class MkvtuneApp(App[None]):
         with Horizontal(id="body"):
             with Vertical(id="browser"):
                 yield Label("BROWSER  (F3 closes)", id="browser-title")
-                yield DirectoryTree(str(self.directory.parent or self.directory), id="tree")
+                yield DirectoryTree("/", id="tree")
             with Vertical(id="main"):
                 yield DataTable(id="files", cursor_type="row", zebra_stripes=True)
                 with Vertical(id="tracks-wrap"):

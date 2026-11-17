@@ -35,9 +35,9 @@ intact before you install anything:
 ```sh
 sudo apt install mkvtoolnix
 cd ~
-curl -L -o mkvtune_0.2.0-1_all.deb https://github.com/TheRealAshito/mkvtune/releases/download/v0.2.0/mkvtune_0.2.0-1_all.deb
-echo "70462504ee7c2f11b2763b68d5deb5160789d30538a9a7a1238a6343179b6d1d  mkvtune_0.2.0-1_all.deb" | sha256sum -c -
-sudo apt install ./mkvtune_0.2.0-1_all.deb
+curl -L -o mkvtune_0.2.1-1_all.deb https://github.com/TheRealAshito/mkvtune/releases/download/v0.2.1/mkvtune_0.2.1-1_all.deb
+echo "9f56952812c0d41757ffd299316cbd8285da8fcd1bd835247d4ce875d186e809  mkvtune_0.2.1-1_all.deb" | sha256sum -c -
+sudo apt install ./mkvtune_0.2.1-1_all.deb
 mkvtune doctor
 ```
 
@@ -53,7 +53,7 @@ mkvtune doctor
 
 ```sh
 sudo apt install mkvtoolnix
-pipx install "git+https://github.com/TheRealAshito/mkvtune@v0.2.0"
+pipx install "git+https://github.com/TheRealAshito/mkvtune@v0.2.1"
 pipx ensurepath
 exec $SHELL
 mkvtune doctor
@@ -93,7 +93,7 @@ mkvtune ~/anime/SomeShow # TUI in a specific folder
 | `F4` / `P` | preview: per-file diff + exact `mkvpropedit` command (dry run) |
 | `F5` / `!` | apply pending changes (asks first, journals for undo) |
 | `F8` / `u` | undo a previous apply |
-| `F3` | open/close the file browser (Enter picks a folder) |
+| `F3` | open/close the file browser (rooted at `/` so mounts are reachable; Enter picks a folder) |
 | `ctrl+g` | jump to any folder by path |
 | `F9` / click | open the File / Pick / Batch / View / Help menus |
 | `r` | rescan folder |

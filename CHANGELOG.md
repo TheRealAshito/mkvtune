@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 — 2026-11-17
+
+- File browser (F3) is now rooted at `/` (mc-style) instead of the start
+  folder's parent — mounts and system folders are reachable from inside
+  the app. Regression-tested.
+
 ## 0.2.0 — 2026-11-17
 
 Major UI rework (Midnight-Commander-shaped shell + duf-style visuals),

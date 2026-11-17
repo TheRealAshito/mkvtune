@@ -317,6 +317,32 @@ def test_tui_goto_folder(xdg_env, mkv_factory, tmp_path):
 
 
 @requires_tools
+def test_tui_browser_reaches_filesystem_root(xdg_env, mkv_factory):
+    """v0.2.1: the browser tree is rooted at / (mc-style) so mounts outside
+    home are reachable — it must never be anchored to the start folder."""
+    from pathlib import Path
+
+    from textual.widgets import DirectoryTree
+
+    from mkvtune import config
+    from mkvtune.scan import find_tools
+    from mkvtune.tui.app import MkvtuneApp
+
+    f = mkv_factory("ep.mkv")
+
+    async def scenario():
+        app = MkvtuneApp(f.parent, settings=config.load_settings(), tools=find_tools())
+        async with app.run_test(size=(120, 30)) as pilot:
+            deadline = time.monotonic() + 30
+            while not app.scan_done.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.05)
+            tree = app.query_one("#tree", DirectoryTree)
+            assert Path(tree.path) == Path("/")
+
+    asyncio.run(scenario())
+
+
+@requires_tools
 def test_tui_long_names_truncate_keep_tail(xdg_env, mkv_factory):
     """Fansub names carry the episode number at the end — truncation must
     keep the tail visible (v0.2 layout complaint)."""
