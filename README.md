@@ -28,7 +28,7 @@ Requires: `mkvtoolnix` (`mkvmerge` + `mkvpropedit`) and Python ≥ 3.11.
 
 ```sh
 sudo apt install mkvtoolnix
-sudo apt install ./mkvtune_0.1.0-1_all.deb   # from the GitHub release assets
+sudo apt install ./mkvtune_0.1.1-1_all.deb   # from the GitHub release assets
 ```
 
 The .deb is self-contained (Python dependencies bundled) — no pip needed.

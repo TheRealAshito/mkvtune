@@ -139,3 +139,60 @@ def test_tui_empty_folder(xdg_env):
                 assert not app.pending
 
     asyncio.run(scenario())
+
+
+@requires_tools
+def test_tui_survives_keys_on_empty_tables(xdg_env, mkv_factory):
+    """Regression (v0.1.1): DataTable emits RowHighlighted(row_key=None) with
+    cursor_row=-1 when a table is empty or mid-clear. On slow machines keys
+    arrive during the scan window and crashed the handler. run_test re-raises
+    any app exception on exit, so 'survives' is asserted by finishing."""
+    import tempfile
+
+    from textual.widgets import DataTable
+
+    from mkvtune import config
+    from mkvtune.scan import find_tools
+    from mkvtune.tui.app import MkvtuneApp
+
+    f = mkv_factory("ep.mkv")
+
+    async def hammer(app, expect_rows):
+        async with app.run_test(size=(120, 30)) as pilot:
+            # BEFORE the scan finishes: tables may still be empty
+            for key in ("down", "up", "enter", "down", "p", "e", "d", "f", "m", "g"):
+                await pilot.press(key)
+            deadline = time.monotonic() + 30
+            while not app.scan_done.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.05)
+            # AFTER load: refresh cycle (clear + re-add) + more cursor keys
+            await pilot.press("m")
+            await pilot.press("g")
+            for key in ("down", "up", "enter", "p"):
+                await pilot.press(key)
+            assert app.query_one("#files", DataTable).row_count == expect_rows
+
+    async def scenario():
+        app = MkvtuneApp(f.parent, settings=config.load_settings(), tools=find_tools())
+        await hammer(app, expect_rows=1)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            empty = MkvtuneApp(tmp, settings=config.load_settings(), tools=find_tools())
+            await hammer(empty, expect_rows=0)
+
+    asyncio.run(scenario())
+
+
+def test_row_highlighted_none_key_guard():
+    """Deterministic version of the v0.1.1 regression: the handlers must
+    tolerate DataTable events carrying row_key=None (empty/mid-clear tables)."""
+    from types import SimpleNamespace
+
+    from mkvtune.tui.app import MkvtuneApp, UndoScreen
+
+    app = MkvtuneApp(".")
+    app._file_highlighted(SimpleNamespace(row_key=None))        # must not raise
+    app._file_highlighted(SimpleNamespace(row_key=SimpleNamespace(value=None)))
+
+    undo = UndoScreen([])
+    undo._pick(SimpleNamespace(row_key=None))                   # must not raise

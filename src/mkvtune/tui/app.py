@@ -131,7 +131,7 @@ class MkvtuneApp(App[None]):
 
     def _refresh_files(self) -> None:
         table = self.query_one("#files", DataTable)
-        keep = table.cursor_row or 0
+        keep = max(0, table.cursor_row or 0)
         table.clear()
         for path in self.order:
             state = self.states[path]
@@ -145,7 +145,7 @@ class MkvtuneApp(App[None]):
 
     def _refresh_tracks(self) -> None:
         table = self.query_one("#tracks", DataTable)
-        keep = table.cursor_row or 0
+        keep = max(0, table.cursor_row or 0)
         table.clear()
         self._track_rows = []
         state = self.states.get(self.current_file or "")
@@ -220,9 +220,12 @@ class MkvtuneApp(App[None]):
 
     @on(DataTable.RowHighlighted, "#files")
     def _file_highlighted(self, event: DataTable.RowHighlighted) -> None:
-        path = event.row_key.value
-        if path != self.current_file and path in self.states:
-            self.current_file = path
+        # DataTable emits row_key=None on empty tables / mid-clear (cursor -1)
+        key = event.row_key.value if event.row_key is not None else None
+        if not isinstance(key, str):
+            return
+        if key != self.current_file and key in self.states:
+            self.current_file = key
             self._refresh_tracks()
 
     @on(DataTable.RowHighlighted, "#tracks")
@@ -519,6 +522,8 @@ class UndoScreen(ModalScreen[str]):
 
     @on(DataTable.RowSelected, "#journals")
     def _pick(self, event: DataTable.RowSelected) -> None:
+        if event.row_key is None:
+            return
         self.dismiss(str(event.row_key.value))
 
     @on(Button.Pressed, "#cancel")
