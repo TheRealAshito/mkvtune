@@ -87,18 +87,21 @@ mkvtune ~/anime/SomeShow # TUI in a specific folder
 | Key | Action |
 |-----|--------|
 | `F2` / `p` | make the highlighted track THE default for its type (subs also get forced; rival default+forced cleared). If other episodes carry a matching track, you choose: **all of them at once**, or this episode only |
+| `X` | pick the highlighted track AND disable (`flag-enabled=0`) all other tracks of that type (works for both audio and subtitles) |
 | `g` / `G` | auto-pick this episode / all episodes (marked only if any) — just a proposal |
 | `e` `d` `f` | toggle enabled / default / forced on the highlighted track |
+| `c` / `C` | clear pending changes (current episode / all episodes, keeps scan cache) |
 | `m` | mark an episode (limits `G` to marked) |
 | `F4` / `P` | preview: per-file diff + exact `mkvpropedit` command (dry run) |
-| `F5` / `!` | apply pending changes (asks first, journals for undo) |
-| `F8` / `u` | undo a previous apply |
+| `F5` / `!` | apply pending changes (asks first, runs in background with progress, journals for undo) |
+| `F8` / `u` | undo a previous apply (verified) |
+| `s` | policy presets & language/flag settings |
 | `F3` | open/close the file browser (open by default) |
 | *(browser)* | mc panel mode: `Enter` enters a folder / opens an episode's folder, `backspace` goes up. The tree mode (View menu) is rooted at `/` so mounts are reachable |
 | `ctrl+g` | jump to any folder by path |
 | `F9` / click | open the File / Pick / Batch / View / Help menus |
-| `r` | rescan folder |
-| `t` | next theme: dark / amoled (pure black) / mc (classic Midnight Commander blue) / paper (light) |
+| `r` | rescan folder (drop cache) |
+| `t` / `T` | next theme / theme picker (`dark`, `amoled`, `bw`, `bw-light`, `htop`, `mc`, `paper`) |
 | `D` | diagnostics (tool paths/versions, dirs, debug toggle) |
 | `F1` / `?` | help |
 | `F10` / `q` | quit |
@@ -121,6 +124,7 @@ mkvtune scan ~/anime/Show --json          # machine-readable
 mkvtune apply ~/anime/Show --dry-run      # show what smart-pick would do
 mkvtune apply ~/anime/Show                # smart-pick + apply + verify
 mkvtune apply ~/anime/Show --pick a1 --pick s2   # manual: 1st audio, 2nd sub
+mkvtune apply ~/anime/Show --pick a1 --disable-others  # disable other audio tracks too
 mkvtune undo                              # restore the last apply
 mkvtune undo --list                       # list journals
 mkvtune policies                          # list smart-pick presets

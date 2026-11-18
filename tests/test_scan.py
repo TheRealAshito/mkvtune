@@ -1,5 +1,5 @@
 from mkvtune.model import TrackKind
-from mkvtune.scan import parse_identify
+from mkvtune.scan import list_mkv_files, parse_identify
 
 IDENTIFY = {
     "tracks": [
@@ -49,3 +49,12 @@ def test_flags_tristate_defaults():
         {"type": "audio", "codec": "AAC", "id": 0, "properties": {"number": 1}},
     ]})
     assert state.tracks[0].flags == (True, False, False)
+
+
+def test_list_mkv_files_case_insensitive_and_missing_dir(tmp_path):
+    (tmp_path / "ep01.mkv").write_bytes(b"")
+    (tmp_path / "ep02.MKV").write_bytes(b"")
+    (tmp_path / "notes.txt").write_text("ignore")
+    found = [p.name for p in list_mkv_files(tmp_path)]
+    assert found == ["ep01.mkv", "ep02.MKV"]
+    assert list_mkv_files(tmp_path / "does-not-exist") == []

@@ -100,7 +100,7 @@ def test_tui_manual_pick_semantics(xdg_env, mkv_factory):
 def test_tui_theme_toggle_and_quit(xdg_env, mkv_factory):
     from mkvtune import config
     from mkvtune.scan import find_tools
-    from mkvtune.tui.app import MkvtuneApp
+    from mkvtune.tui.app import THEME_ORDER, MkvtuneApp
 
     f = mkv_factory("ep.mkv")
 
@@ -110,30 +110,42 @@ def test_tui_theme_toggle_and_quit(xdg_env, mkv_factory):
             deadline = time.monotonic() + 30
             while not app.scan_done.is_set() and time.monotonic() < deadline:
                 await pilot.pause(0.05)
-            assert app.theme == "dark"
+            assert app.theme == THEME_ORDER[0]
+            for expected in THEME_ORDER[1:]:
+                await pilot.press("t")
+                assert app.theme == expected
+                assert config.load_settings().theme == expected
             await pilot.press("t")
-            assert app.theme == "amoled"
-            assert config.load_settings().theme == "amoled"
-            await pilot.press("t")
-            assert app.theme == "mc"
-            await pilot.press("t")
-            assert app.theme == "paper"
-            await pilot.press("t")
-            assert app.theme == "dark"  # cycles around
+            assert app.theme == THEME_ORDER[0]  # cycles around
 
     asyncio.run(scenario())
 
 
 def test_theme_palettes_are_visually_distinct():
-    from mkvtune.tui.app import THEMES
+    from mkvtune.tui.app import THEME_ORDER, THEME_PALETTES, THEMES
 
-    assert set(THEMES) == {"dark", "amoled", "mc", "paper"}
-    assert len({t.background for t in THEMES.values()}) == 4
-    assert len({t.primary for t in THEMES.values()}) == 4
+    assert set(THEMES) == {"dark", "amoled", "bw", "bw-light", "htop", "mc", "paper"}
+    assert set(THEME_ORDER) == set(THEMES)
+    assert set(THEME_PALETTES) == set(THEMES)
     assert THEMES["amoled"].background == "#000000"
+    assert THEMES["bw"].background == "#000000"
+    assert THEMES["bw"].foreground == "#ffffff"
+    assert THEMES["bw"].primary == "#ffffff"
+    assert THEMES["bw-light"].background == "#ffffff"
+    assert THEMES["bw-light"].foreground == "#000000"
+    assert THEMES["bw-light"].dark is False
+    assert THEMES["htop"].background == "#000000"
+    assert THEMES["htop"].primary == "#00ffff"
     assert THEMES["mc"].background == "#0000aa"
     assert THEMES["paper"].dark is False
-    assert all(t.dark for name, t in THEMES.items() if name != "paper")
+    assert all(t.dark for name, t in THEMES.items() if name not in ("paper", "bw-light"))
+
+    # Strict monochrome palettes must contain no chromatic color names or hexes
+    for mono in ("bw", "bw-light"):
+        pal = THEME_PALETTES[mono]
+        for field_val in vars(pal).values():
+            for bad in ("cyan", "green", "yellow", "red", "blue", "#6cb6ff", "#00e5ff"):
+                assert bad not in field_val, f"{mono} palette leaked color {bad!r}: {field_val!r}"
 
 
 def test_tui_empty_folder(xdg_env):
@@ -439,5 +451,311 @@ def test_tui_long_names_truncate_keep_tail(xdg_env, mkv_factory):
             assert "…" in label
             assert label.endswith(".mkv"), f"tail lost: {label!r}"
             assert len(label) <= 36
+
+    asyncio.run(scenario())
+
+
+# ---------------------------------------------------------------------------
+# Deterministic headless TUI tests (mocked mkvmerge/mkvpropedit, no binaries needed)
+# ---------------------------------------------------------------------------
+
+def _fake_mkv_dir(tmp_path, count=2):
+    from mkvtune.model import FileTracks, Track, TrackKind
+
+    store = {}
+    for i in range(1, count + 1):
+        p = tmp_path / f"Show - 0{i} [1080p].mkv"
+        p.write_bytes(b"fake")
+        store[str(p)] = FileTracks(
+            path=str(p), size=4, mtime=float(i),
+            tracks=(
+                Track(1, 10, TrackKind.VIDEO, "AVC", "und", "", True, True, False),
+                Track(2, 20, TrackKind.AUDIO, "AAC", "eng", "English", True, True, False),
+                Track(3, 30, TrackKind.AUDIO, "AAC", "jpn", "Japanese", True, False, False),
+                Track(4, 40, TrackKind.SUBTITLES, "ASS", "eng", "Signs", True, False, False),
+                Track(5, 50, TrackKind.SUBTITLES, "ASS", "eng", "Full", True, False, False),
+            ),
+        )
+    return store
+
+
+def _patch_fake_tools(monkeypatch, store):
+    from mkvtune.edit import ApplyResult
+    from mkvtune.model import FileTracks, merge_flags
+    import mkvtune.tui.app as tui_app
+
+    def fake_identify(path, tools=None, *, use_cache=True):
+        return store[str(path)]
+
+    def fake_apply(path, changes, *, mkvpropedit="mkvpropedit"):
+        state = store[str(path)]
+        by_num = {c.track.number: c.after for c in changes}
+        updated = []
+        for t in state.tracks:
+            if t.number in by_num:
+                e, d, f = by_num[t.number]
+                updated.append(type(t)(
+                    t.number, t.uid, t.kind, t.codec, t.language, t.name, e, d, f))
+            else:
+                updated.append(t)
+        store[str(path)] = FileTracks(state.path, state.size, state.mtime, tuple(updated))
+        return ApplyResult(path=str(path), ok=True, cmd=[mkvpropedit, str(path)], changes=list(changes))
+
+    monkeypatch.setattr(tui_app, "identify", fake_identify)
+    monkeypatch.setattr(tui_app, "apply_changes", fake_apply)
+    return {"mkvmerge": "fake-mkvmerge", "mkvpropedit": "fake-mkvpropedit"}
+
+
+def test_tui_bw_theme_and_picker_no_color_leak(xdg_env, tmp_path, monkeypatch):
+    from textual.widgets import DataTable, Static
+    from mkvtune import config
+    from mkvtune.tui.app import MkvtuneApp, _ThemeScreen, flag_text, theme_palette
+
+    store = _fake_mkv_dir(tmp_path, count=1)
+    tools = _patch_fake_tools(monkeypatch, store)
+
+    async def scenario():
+        app = MkvtuneApp(tmp_path, settings=config.load_settings(), tools=tools)
+        async with app.run_test(size=(120, 30)) as pilot:
+            while not app.scan_done.is_set():
+                await pilot.pause(0.02)
+
+            # Open theme picker via T and select "bw"
+            await pilot.press("T")
+            assert isinstance(app.screen, _ThemeScreen)
+            opt = app.screen.query_one("#theme-options")
+            opt.highlighted = 2  # bw
+            await pilot.press("enter")
+            await pilot.pause(0.05)
+            assert app.theme == "bw"
+            assert config.load_settings().theme == "bw"
+
+            # Trigger pending change so keybar/infobar/chips/flags render in bw
+            await pilot.press("g")
+            await pilot.pause(0.05)
+
+            keybar_markup = str(app.query_one("#keybar", Static).content)
+            infobar_markup = str(app.query_one("#infobar", Static).content)
+            for chromatic in ("#6cb6ff", "#00e5ff", "cyan", "green", "yellow"):
+                assert chromatic not in keybar_markup
+                assert chromatic not in infobar_markup
+
+            files = app.query_one("#files", DataTable)
+            row = files.get_row_at(0)
+            assert "cyan" not in str(row[2].style)
+            assert "green" not in str(row[3].style)
+            assert flag_text(True, changed=True, palette=theme_palette("bw")).style == "bold reverse"
+
+    asyncio.run(scenario())
+
+
+def test_tui_pick_disable_others_and_clear_pending(xdg_env, tmp_path, monkeypatch):
+    from textual.widgets import DataTable
+    from mkvtune import config
+    from mkvtune.tui.app import MkvtuneApp, _ScopeScreen
+
+    store = _fake_mkv_dir(tmp_path, count=2)
+    tools = _patch_fake_tools(monkeypatch, store)
+
+    async def scenario():
+        app = MkvtuneApp(tmp_path, settings=config.load_settings(), tools=tools)
+        async with app.run_test(size=(120, 30)) as pilot:
+            while not app.scan_done.is_set():
+                await pilot.pause(0.02)
+
+            tracks = app.query_one("#tracks", DataTable)
+            # Highlight audio #3 (jpn) and press X -> pick + disable others across all episodes
+            tracks.move_cursor(row=2)
+            await pilot.pause(0.02)
+            await pilot.press("X")
+            assert isinstance(app.screen, _ScopeScreen)
+            await pilot.press("a")
+            await pilot.pause(0.05)
+
+            assert len(app.pending) == 2
+            for ov in app.pending.values():
+                assert ov[3] == (True, True, None)   # jpn chosen
+                assert ov[2] == (False, False, False)  # eng audio disabled!
+
+            # c clears only current episode; C clears all
+            await pilot.press("c")
+            await pilot.pause(0.02)
+            assert len(app.pending) == 1
+            await pilot.press("C")
+            await pilot.pause(0.02)
+            assert len(app.pending) == 0
+
+    asyncio.run(scenario())
+
+
+def test_tui_async_apply_undo_verify_and_escape(xdg_env, tmp_path, monkeypatch):
+    from textual.widgets import Static
+    from mkvtune import config
+    from mkvtune.tui.app import ConfirmScreen, MkvtuneApp, UndoScreen
+
+    store = _fake_mkv_dir(tmp_path, count=2)
+    tools = _patch_fake_tools(monkeypatch, store)
+
+    async def scenario():
+        app = MkvtuneApp(tmp_path, settings=config.load_settings(), tools=tools)
+        async with app.run_test(size=(120, 30)) as pilot:
+            while not app.scan_done.is_set():
+                await pilot.pause(0.02)
+
+            await pilot.press("G")
+            assert len(app.pending) == 2
+
+            # Unsaved guard on quit/rescan: cancelling keeps pending edits
+            await pilot.press("q")
+            assert isinstance(app.screen, ConfirmScreen)
+            await pilot.press("n")
+            assert len(app.pending) == 2
+
+            # Apply in background worker
+            await pilot.press("exclamation_mark")
+            assert isinstance(app.screen, ConfirmScreen)
+            await pilot.press("y")
+
+            deadline = time.monotonic() + 10
+            while not app.apply_done.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.02)
+            while not app.scan_done.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.02)
+            await pilot.pause(0.05)
+
+            assert not app.pending
+            status_text = str(app.query_one("#status", Static).content)
+            assert "all verified" in status_text
+
+            # Verify flags actually changed in fake store
+            for st in store.values():
+                assert st.find(3).default is True
+                assert st.find(5).default is True and st.find(5).forced is True
+
+            # UndoScreen closes with Escape
+            await pilot.press("u")
+            assert isinstance(app.screen, UndoScreen)
+            await pilot.press("escape")
+            assert not isinstance(app.screen, UndoScreen)
+
+            # Reopen UndoScreen and restore first journal
+            await pilot.press("u")
+            assert isinstance(app.screen, UndoScreen)
+            await pilot.press("enter")
+
+            deadline = time.monotonic() + 10
+            while not app.undo_done.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.02)
+            while not app.scan_done.is_set() and time.monotonic() < deadline:
+                await pilot.pause(0.02)
+            await pilot.pause(0.05)
+
+            undo_status = str(app.query_one("#status", Static).content)
+            assert "all verified" in undo_status
+            for st in store.values():
+                assert st.find(2).default is True
+                assert st.find(3).default is False
+
+    asyncio.run(scenario())
+
+
+def test_tui_settings_modal_saves_and_sets_policy(xdg_env, tmp_path, monkeypatch):
+    from textual.widgets import Checkbox, Input, Select
+    from mkvtune import config
+    from mkvtune.tui.app import MkvtuneApp, _SettingsScreen
+
+    store = _fake_mkv_dir(tmp_path, count=1)
+    tools = _patch_fake_tools(monkeypatch, store)
+
+    async def scenario():
+        app = MkvtuneApp(tmp_path, settings=config.load_settings(), tools=tools)
+        async with app.run_test(size=(120, 35)) as pilot:
+            while not app.scan_done.is_set():
+                await pilot.pause(0.02)
+
+            await pilot.press("s")
+            assert isinstance(app.screen, _SettingsScreen)
+            app.screen.query_one("#policy-select", Select).value = "anime-disable-others"
+            app.screen.query_one("#audio-langs", Input).value = "jpn, kor"
+            app.screen.query_one("#disable-audio", Checkbox).value = True
+            await pilot.click("#save")
+            await pilot.pause(0.05)
+
+            assert app.active_policy == "anime-disable-others"
+            saved = config.load_settings()
+            assert saved.audio_langs == ("jpn", "kor")
+            assert saved.disable_other_audio is True
+
+    asyncio.run(scenario())
+
+
+def test_tui_theme_cycle_all_and_preview_quoting(xdg_env, tmp_path, monkeypatch):
+    from textual.widgets import Static
+    from mkvtune import config
+    from mkvtune.tui.app import THEME_ORDER, MkvtuneApp, PreviewScreen
+
+    store = _fake_mkv_dir(tmp_path, count=1)
+    tools = _patch_fake_tools(monkeypatch, store)
+
+    async def scenario():
+        app = MkvtuneApp(tmp_path, settings=config.load_settings(), tools=tools)
+        async with app.run_test(size=(120, 30)) as pilot:
+            while not app.scan_done.is_set():
+                await pilot.pause(0.02)
+
+            assert app.theme == THEME_ORDER[0]
+            for expected in THEME_ORDER[1:]:
+                await pilot.press("t")
+                assert app.theme == expected
+            await pilot.press("t")
+            assert app.theme == THEME_ORDER[0]
+
+            await pilot.press("g")
+            await pilot.press("P")
+            assert isinstance(app.screen, PreviewScreen)
+            preview_text = str(app.screen.query_one(".modal-text", Static).content)
+            # Filename contains spaces and brackets so shlex.join must shell-quote it
+            assert "'" in preview_text and "Show - 01 [1080p].mkv" in preview_text
+
+    asyncio.run(scenario())
+
+
+def test_tui_scope_relaxed_matching(xdg_env, tmp_path, monkeypatch):
+    from mkvtune.model import FileTracks, Track, TrackKind
+    from mkvtune import config
+    from mkvtune.tui.app import MkvtuneApp, _ScopeScreen
+
+    p1 = tmp_path / "ep1.mkv"
+    p2 = tmp_path / "ep2.mkv"
+    p1.write_bytes(b"1")
+    p2.write_bytes(b"2")
+    store = {
+        str(p1): FileTracks(str(p1), 1, 1.0, (
+            Track(1, 10, TrackKind.VIDEO, "AVC", "und", "", True, True, False),
+            Track(2, 20, TrackKind.SUBTITLES, "ASS", "eng", "Full", True, False, False),
+        )),
+        # ep2 has same kind+lang+name ("Full") but different codec ("SRT") and ordinal
+        str(p2): FileTracks(str(p2), 1, 2.0, (
+            Track(1, 10, TrackKind.VIDEO, "AVC", "und", "", True, True, False),
+            Track(2, 20, TrackKind.SUBTITLES, "ASS", "eng", "Signs", True, False, False),
+            Track(3, 30, TrackKind.SUBTITLES, "SRT", "eng", "Full", True, False, False),
+        )),
+    }
+    tools = _patch_fake_tools(monkeypatch, store)
+
+    async def scenario():
+        app = MkvtuneApp(tmp_path, settings=config.load_settings(), tools=tools)
+        async with app.run_test(size=(120, 30)) as pilot:
+            while not app.scan_done.is_set():
+                await pilot.pause(0.02)
+
+            tracks = app.query_one("#tracks")
+            tracks.move_cursor(row=1)  # Full subtitle on ep1
+            await pilot.pause(0.02)
+            await pilot.press("p")
+            assert isinstance(app.screen, _ScopeScreen)
+            await pilot.press("a")
+            await pilot.pause(0.05)
+            assert len(app.pending) == 2
 
     asyncio.run(scenario())

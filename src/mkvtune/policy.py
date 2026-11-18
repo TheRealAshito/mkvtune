@@ -27,6 +27,7 @@ class PickPolicy:
     sub_name_include: str = r"(?i)(full|dialog)"
     force_picked_subs: bool = True
     disable_other_subs: bool = False
+    disable_other_audio: bool = False
 
     @classmethod
     def from_settings(cls, settings: config.Settings) -> "PickPolicy":
@@ -35,6 +36,7 @@ class PickPolicy:
             sub_langs=tuple(settings.sub_langs),
             force_picked_subs=settings.force_picked_subs,
             disable_other_subs=settings.disable_other_subs,
+            disable_other_audio=settings.disable_other_audio,
         )
 
 
@@ -84,7 +86,8 @@ def smart_pick(state: FileTracks, policy: PickPolicy | None = None) -> SmartPick
         else:
             notes.append(f"audio -> #{chosen.number} ({chosen.language}{_name(chosen)})")
         overrides.update(pick_overrides(state, TrackKind.AUDIO, chosen.number,
-                                        also_force=False))
+                                        also_force=False,
+                                        disable_others=policy.disable_other_audio))
     else:
         notes.append("audio -> none found")
 
@@ -140,6 +143,7 @@ def list_policies() -> dict[str, PickPolicy]:
                 sub_name_include=data.get("sub_name_include", PickPolicy.sub_name_include),
                 force_picked_subs=bool(data.get("force_picked_subs", True)),
                 disable_other_subs=bool(data.get("disable_other_subs", False)),
+                disable_other_audio=bool(data.get("disable_other_audio", False)),
             )
         except (TypeError, ValueError):
             continue

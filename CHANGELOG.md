@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.4.0 — 2026-11-18
+
+- **True monochrome & htop themes + theme-driven styling**:
+  - Added `bw` (pure black & white, zero color accents), `bw-light`
+    (pure white & black), and `htop` (black with cyan/green/yellow).
+  - Removed hardcoded Rich hex/color tags from `#keybar`, `#infobar`,
+    audio/sub chips, pending counts, and flag dots so every theme
+    restyles the entire UI consistently.
+  - Added `T` / View > Select theme… picker alongside `t` cycling.
+- **Non-blocking Apply & Undo + verified Undo**:
+  - Moved batch apply and undo into background worker threads with live
+    progress dialogs so 60+ episode batches never freeze the UI.
+  - Added post-undo verification (`verify_flags`) in the TUI and `Escape`
+    support on `UndoScreen`.
+- **Pick + disable others (`X` / `--disable-others`)**:
+  - `X` (Pick > Pick + disable others) picks a track as default and sets
+    `flag-enabled=0` on all other tracks of that type (both audio and
+    subtitles).
+  - Added `disable_other_audio` setting and fixed CLI `--pick aN` so
+    audio picks no longer read `disable_other_subs`.
+- **Workflow & reliability**:
+  - `c` / `C` to clear pending changes for the current episode or all
+    episodes without dropping the scan cache.
+  - Unsaved-pending confirmation on folder switch, rescan, and quit.
+  - `s` (Batch > Policy & settings…) modal for policy presets, preferred
+    languages, and flag behavior.
+  - Parallelized scanning, case-insensitive `.mkv` matching, relaxed
+    `(kind, language, name)` cross-episode fallback in the scope dialog,
+    and shell-quoted (`shlex.join`) commands in preview/dry-run.
+
 ## 0.3.0 — 2026-11-17
 
 - **Browser opens by default** and gains an mc-style panel mode: one

@@ -45,7 +45,9 @@ def list_mkv_files(directory: str | Path) -> list[Path]:
     """All .mkv files directly inside ``directory`` (non-recursive, like the
     original ``for arquivo in *.mkv`` loop)."""
     d = Path(directory).expanduser().resolve()
-    return sorted(p for p in d.glob("*.mkv") if p.is_file())
+    if not d.is_dir():
+        return []
+    return sorted(p for p in d.iterdir() if p.is_file() and p.suffix.lower() == ".mkv")
 
 
 def parse_identify(path: str | Path, data: dict, *, size: int = 0, mtime: float = 0.0) -> FileTracks:

@@ -98,3 +98,10 @@ class TestSmartPick:
         policy = PickPolicy(disable_other_subs=True)
         result = smart_pick(ANIME, policy)
         assert result.overrides[4] == (False, False, False)
+        assert result.overrides[2] == (None, False, False)  # audio unaffected
+
+    def test_policy_disable_other_audio(self):
+        policy = PickPolicy(disable_other_audio=True)
+        result = smart_pick(ANIME, policy)
+        assert result.overrides[2] == (False, False, False)
+        assert result.overrides[3] == (True, True, None)

@@ -1,6 +1,6 @@
-/* mkvtune v0.3 — MC-shaped chrome + duf-style density, theme-driven.
+/* mkvtune v0.4 — MC-shaped chrome + duf-style density, theme-driven.
    Colors come from Textual theme variables, so every theme (dark / amoled /
-   mc / paper) restyles the whole app consistently. */
+   bw / bw-light / htop / mc / paper) restyles the whole app consistently. */
 
 Screen {
     background: $background;
@@ -193,6 +193,24 @@ Button {
 Button.-primary {
     background: $primary;
     color: auto 87%;
+}
+
+.field-label {
+    color: $text-accent;
+    padding: 1 0 0 0;
+}
+
+#settings-box Input,
+#settings-box Select,
+#settings-box Checkbox {
+    margin: 0 0 0 0;
+}
+
+#theme-options {
+    height: auto;
+    max-height: 14;
+    background: $background;
+    border: solid $panel-lighten-2;
 }
 
 .dim { color: $text-muted; }

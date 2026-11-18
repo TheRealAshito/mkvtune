@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import sys
 from pathlib import Path
 
@@ -53,7 +54,8 @@ def cmd_scan(args: argparse.Namespace) -> int:
     return 0
 
 
-def _parse_picks(tokens: list[str], states: list) -> dict[str, Overrides]:
+def _parse_picks(tokens: list[str], states: list, *,
+                 disable_others: bool | None = None) -> dict[str, Overrides]:
     """--pick a1 / --pick s2 style: the Nth track of that type (mkvpropedit's
     own selector language, matching the user's muscle memory)."""
     parsed = []
@@ -74,10 +76,17 @@ def _parse_picks(tokens: list[str], states: list) -> dict[str, Overrides]:
                       file=sys.stderr)
                 continue
             chosen = of_kind[nth - 1]
+            kind_disable = (
+                disable_others
+                if disable_others is not None
+                else (settings.disable_other_subs if kind is TrackKind.SUBTITLES
+                      else settings.disable_other_audio if kind is TrackKind.AUDIO
+                      else False)
+            )
             overrides.update(policy_mod.pick_overrides(
                 state, kind, chosen.number,
                 also_force=settings.force_picked_subs,
-                disable_others=settings.disable_other_subs))
+                disable_others=kind_disable))
         per_file[state.path] = overrides
     return per_file
 
@@ -90,7 +99,11 @@ def cmd_apply(args: argparse.Namespace) -> int:
         raise SystemExit(f"unknown policy {args.policy!r}; see: mkvtune policies")
 
     states = _load_states(args.directory, tools)
-    manual = _parse_picks(args.pick, states) if args.pick else None
+    disable_others = True if getattr(args, "disable_others", False) else None
+    if disable_others and policy is not None:
+        from dataclasses import replace
+        policy = replace(policy, disable_other_subs=True, disable_other_audio=True)
+    manual = _parse_picks(args.pick, states, disable_others=disable_others) if args.pick else None
 
     results = []
     for state in states:
@@ -111,7 +124,7 @@ def cmd_apply(args: argparse.Namespace) -> int:
             cmd = build_command(state.path, changes, tools["mkvpropedit"])
             print(f"{Path(state.path).name}: would change {len(changes)} track(s) "
                   f"({'; '.join(notes)})")
-            print("  " + " ".join(cmd))
+            print("  " + shlex.join(cmd))
             continue
         result = apply_changes(state.path, changes, mkvpropedit=tools["mkvpropedit"])
         results.append(result)
@@ -183,7 +196,12 @@ def cmd_undo(args: argparse.Namespace) -> int:
 def cmd_policies(args: argparse.Namespace) -> int:
     for name, p in policy_mod.list_policies().items():
         force = "default+forced" if p.force_picked_subs else "default only"
-        extra = ", disables others" if p.disable_other_subs else ""
+        dis = []
+        if p.disable_other_subs:
+            dis.append("subs")
+        if p.disable_other_audio:
+            dis.append("audio")
+        extra = f", disables other {'+'.join(dis)}" if dis else ""
         print(f"{name:<24} audio={','.join(p.audio_langs)}  subs={','.join(p.sub_langs)}  [{force}{extra}]")
     return 0
 
@@ -237,6 +255,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_apply.add_argument("--pick", action="append", metavar="aN|sN",
                          help="manual pick: Nth audio/subtitle track, e.g. --pick a1 --pick s2")
     p_apply.add_argument("--policy", help="named policy preset (see: mkvtune policies)")
+    p_apply.add_argument("--disable-others", action="store_true",
+                         help="also set flag-enabled=0 on unpicked tracks of the picked type(s)")
     p_apply.add_argument("--dry-run", action="store_true", help="print the mkvpropedit commands only")
     p_apply.set_defaults(func=cmd_apply)
 

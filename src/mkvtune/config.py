@@ -55,11 +55,12 @@ def log_dir() -> Path:
 
 @dataclass
 class Settings:
-    theme: str = "dark"                    # "dark" | "amoled" | "mc" | "paper"
+    theme: str = "dark"                    # "dark" | "amoled" | "bw" | "bw-light" | "htop" | "mc" | "paper"
     debug: bool = True                     # ON by default (standing preference)
     browser_mode: str = "panel"            # "panel" (mc-style) | "tree"
     force_picked_subs: bool = True         # picked sub gets default+forced
     disable_other_subs: bool = False       # also flag-enabled=0 on the rest
+    disable_other_audio: bool = False      # also flag-enabled=0 on unpicked audio
     audio_langs: tuple[str, ...] = ("jpn", "ja", "jap")
     sub_langs: tuple[str, ...] = ("eng",)
 
